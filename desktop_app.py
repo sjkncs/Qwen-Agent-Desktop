@@ -19,13 +19,17 @@ import webbrowser
 
 from aiohttp import web
 
-# ── Import the data/conversation manager ──
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from qwen_agent.gui.desktop.api_bridge import ApiBridge
-
 # Support both dev mode and PyInstaller bundle
 _BASE = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
 FRONTEND_DIR = os.path.join(_BASE, 'qwen_agent', 'gui', 'desktop')
+
+# ── Import api_bridge directly (avoid triggering full qwen_agent package chain) ──
+import importlib.util
+_bridge_path = os.path.join(FRONTEND_DIR, 'api_bridge.py')
+_spec = importlib.util.spec_from_file_location('api_bridge', _bridge_path)
+_mod = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_mod)
+ApiBridge = _mod.ApiBridge
 
 
 def create_app(bridge: ApiBridge) -> web.Application:

@@ -38,7 +38,13 @@ def build(onefile=False):
         'aiohttp',
         'aiohttp.web',
         'openai',
-        'qwen_agent.gui.desktop.api_bridge',
+    ]
+
+    # Exclude the full qwen_agent framework (desktop_app loads api_bridge via importlib)
+    exclude_modules = [
+        'qwen_agent',
+        'torch', 'transformers', 'gradio', 'tiktoken',
+        'numpy', 'pandas', 'scipy', 'matplotlib',
     ]
 
     # Optional imports (don't fail if missing)
@@ -83,6 +89,8 @@ def build(onefile=False):
 
     cmd.extend(add_data_args)
     cmd.extend(hidden_args)
+    for ex in exclude_modules:
+        cmd.extend(['--exclude-module', ex])
     cmd.append(os.path.join(ROOT, 'desktop_app.py'))
 
     print('=' * 60)

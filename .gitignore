@@ -1,11 +1,21 @@
 env
+.env
+.env.*
+!.env.example
 *.pyc
 __pycache__
+.venv/
 
 .idea
 .vscode
 .DS_Store
 *.ipynb_checkpoints
+
+# PyInstaller
+build/
+dist/
+*.spec
+*.ico
 
 qwen_agent/llm/gpt.py
 qwen_agent/llm/tools.py

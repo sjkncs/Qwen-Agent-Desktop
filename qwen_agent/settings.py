@@ -16,9 +16,37 @@ import ast
 import os
 from typing import List, Literal
 
+
+def _hw_default_max_input_tokens() -> int:
+    """Return a hardware-appropriate default for max input tokens.
+    Falls back gracefully if hw_config is not available.
+    """
+    env_val = os.getenv('QWEN_AGENT_DEFAULT_MAX_INPUT_TOKENS')
+    if env_val:
+        return int(env_val)
+    try:
+        from qwen_agent.utils.hw_config import get_hw_profile
+        return get_hw_profile().recommended_max_input_tokens
+    except Exception:
+        return 58000
+
+
+def _hw_default_max_ref_token() -> int:
+    """Scale RAG reference window with available VRAM/RAM."""
+    env_val = os.getenv('QWEN_AGENT_DEFAULT_MAX_REF_TOKEN')
+    if env_val:
+        return int(env_val)
+    try:
+        from qwen_agent.utils.hw_config import get_hw_profile
+        hw = get_hw_profile()
+        # Use 30% of the total context window for RAG reference material
+        return max(4000, int(hw.recommended_max_input_tokens * 0.30))
+    except Exception:
+        return 20000
+
+
 # Settings for LLMs
-DEFAULT_MAX_INPUT_TOKENS: int = int(os.getenv(
-    'QWEN_AGENT_DEFAULT_MAX_INPUT_TOKENS', 58000))  # The LLM will truncate the input messages if they exceed this limit
+DEFAULT_MAX_INPUT_TOKENS: int = _hw_default_max_input_tokens()  # The LLM will truncate the input messages if they exceed this limit
 
 # Settings for agents
 MAX_LLM_CALL_PER_RUN: int = int(os.getenv('QWEN_AGENT_MAX_LLM_CALL_PER_RUN', 20))
@@ -27,8 +55,7 @@ MAX_LLM_CALL_PER_RUN: int = int(os.getenv('QWEN_AGENT_MAX_LLM_CALL_PER_RUN', 20)
 DEFAULT_WORKSPACE: str = os.getenv('QWEN_AGENT_DEFAULT_WORKSPACE', 'workspace')
 
 # Settings for RAG
-DEFAULT_MAX_REF_TOKEN: int = int(os.getenv('QWEN_AGENT_DEFAULT_MAX_REF_TOKEN',
-                                           20000))  # The window size reserved for RAG materials
+DEFAULT_MAX_REF_TOKEN: int = _hw_default_max_ref_token()  # The window size reserved for RAG materials
 DEFAULT_PARSER_PAGE_SIZE: int = int(os.getenv('QWEN_AGENT_DEFAULT_PARSER_PAGE_SIZE',
                                               500))  # Max tokens per chunk when doing RAG
 DEFAULT_RAG_KEYGEN_STRATEGY: Literal['None', 'GenKeyword', 'SplitQueryThenGenKeyword', 'GenKeywordWithKnowledge',

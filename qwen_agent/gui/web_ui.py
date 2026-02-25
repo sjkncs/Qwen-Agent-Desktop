@@ -26,6 +26,136 @@ from qwen_agent.log import logger
 from qwen_agent.utils.utils import print_traceback
 
 
+_QWEN_LOGO_SVG = '''<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+  <defs><linearGradient id="qg" x1="0%" y1="0%" x2="100%" y2="100%">
+    <stop offset="0%" style="stop-color:#6366f1"/><stop offset="100%" style="stop-color:#06b6d4"/>
+  </linearGradient></defs>
+  <circle cx="60" cy="60" r="56" fill="url(#qg)" opacity="0.12"/>
+  <circle cx="60" cy="60" r="42" fill="url(#qg)" opacity="0.20"/>
+  <text x="60" y="72" text-anchor="middle" font-size="42" font-weight="800"
+        font-family="Inter,system-ui,sans-serif" fill="url(#qg)">Q</text>
+</svg>'''
+
+
+def _build_splash_html() -> str:
+    """Build the startup splash screen overlay."""
+    return f'''
+<div id="qa-splash">
+  <div class="splash-logo">{_QWEN_LOGO_SVG}</div>
+  <div class="splash-title">Qwen-Agent</div>
+  <div class="splash-sub">POWERED BY QWEN</div>
+  <div class="splash-bar"><div class="splash-bar-fill"></div></div>
+</div>
+'''
+
+
+def _build_fab_html() -> str:
+    """Build the floating action button with expandable menu."""
+    return '''
+<div id="qa-fab">
+  <button class="fab-main" onclick="document.getElementById('qa-fab').classList.toggle('expanded');this.classList.toggle('open')" title="菜单">
+    ✦
+  </button>
+  <div class="fab-menu">
+    <button class="fab-item" onclick="document.body.classList.toggle('dark-mode');localStorage.setItem('qa-dark',document.body.classList.contains('dark-mode'))" title="切换主题">
+      <span class="fab-tooltip">深色/浅色</span>🌓
+    </button>
+    <button class="fab-item" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="回到顶部">
+      <span class="fab-tooltip">回到顶部</span>↑
+    </button>
+    <button class="fab-item" onclick="let c=document.querySelector('[data-testid=chatbot]');if(c)c.scrollTo({top:c.scrollHeight,behavior:'smooth'})" title="滚到底部">
+      <span class="fab-tooltip">滚到底部</span>↓
+    </button>
+    <button class="fab-item" onclick="if(document.fullscreenElement)document.exitFullscreen();else document.documentElement.requestFullscreen()" title="全屏">
+      <span class="fab-tooltip">全屏切换</span>⛶
+    </button>
+  </div>
+</div>
+<script>
+// Restore dark mode preference
+if(localStorage.getItem('qa-dark')==='true') document.body.classList.add('dark-mode');
+// Auto-remove splash after animation completes
+setTimeout(function(){var s=document.getElementById('qa-splash');if(s)s.remove();},3200);
+</script>
+'''
+
+
+def _build_hw_info_html() -> str:
+    """Build static hardware config panel (shown once at startup)."""
+    try:
+        from qwen_agent.utils.hw_config import get_hw_profile
+        hw = get_hw_profile()
+        rows = []
+        if hw.cuda_available:
+            rows.append(('GPU', hw.gpu_name))
+            rows.append(('VRAM', f'{hw.gpu_vram_gb:.1f} GB'))
+            rows.append(('Compute', hw.gpu_compute_capability))
+            rows.append(('Dtype', hw.recommended_dtype))
+            if hw.recommended_quantization:
+                rows.append(('Quant', hw.recommended_quantization.upper()))
+            rows.append(('Flash Attn', '✓' if hw.flash_attn_available else '✗'))
+            rows.append(('Ctx Tokens', f'{hw.recommended_max_input_tokens:,}'))
+        else:
+            rows.append(('Device', 'CPU'))
+            rows.append(('Cores', f'{hw.cpu_cores}C / {hw.cpu_threads}T'))
+        rows.append(('RAM', f'{hw.system_ram_gb:.1f} GB'))
+
+        table_rows = ''.join(
+            f'<tr><td class="hw-key">{k}</td><td class="hw-val">{v}</td></tr>'
+            for k, v in rows
+        )
+        return f'<div class="hw-panel"><div class="hw-title">⚡ 硬件加速状态</div><table class="hw-table">{table_rows}</table></div>'
+    except Exception:
+        return ''
+
+
+def _build_gpu_stats_html() -> str:
+    """Build live GPU utilization / VRAM usage panel (called every ~3s)."""
+    try:
+        import torch
+        if not torch.cuda.is_available():
+            return ''
+        # Memory stats
+        mem_alloc = torch.cuda.memory_allocated(0) / (1024 ** 3)
+        mem_total_bytes = torch.cuda.get_device_properties(0).total_memory
+        mem_total = mem_total_bytes / (1024 ** 3)
+        mem_pct = mem_alloc / mem_total * 100 if mem_total > 0 else 0
+        mem_bar_cls = 'bar-green' if mem_pct < 60 else ('bar-yellow' if mem_pct < 85 else 'bar-red')
+
+        # GPU utilization via pynvml (optional)
+        util_pct = None
+        try:
+            import pynvml
+            pynvml.nvmlInit()
+            handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+            util = pynvml.nvmlDeviceGetUtilizationRates(handle)
+            util_pct = util.gpu
+        except Exception:
+            pass
+
+        util_row = ''
+        if util_pct is not None:
+            u_cls = 'bar-green' if util_pct < 60 else ('bar-yellow' if util_pct < 85 else 'bar-red')
+            util_row = (
+                f'<tr><td class="hw-key">GPU利用率</td>'
+                f'<td class="hw-val">{util_pct}%'
+                f'<span class="bar-wrap"><span class="bar-fill {u_cls}" style="width:{util_pct}%"></span></span>'
+                f'</td></tr>'
+            )
+
+        mem_row = (
+            f'<tr><td class="hw-key">显存占用</td>'
+            f'<td class="hw-val">{mem_alloc:.1f}/{mem_total:.1f}GB'
+            f'<span class="bar-wrap"><span class="bar-fill {mem_bar_cls}" style="width:{mem_pct:.0f}%"></span></span>'
+            f'</td></tr>'
+        )
+
+        table = f'<table class="hw-table">{util_row}{mem_row}</table>'
+        return f'<div class="hw-panel"><div class="hw-title">📊 实时显存监控</div>{table}</div>'
+    except Exception:
+        return ''
+
+
 class WebUI:
     """A Common chatbot application for agent."""
 
@@ -93,84 +223,103 @@ class WebUI:
         from qwen_agent.gui.gradio_dep import gr, mgr, ms
 
         customTheme = gr.themes.Default(
-            primary_hue=gr.themes.utils.colors.blue,
-            radius_size=gr.themes.utils.sizes.radius_none,
+            primary_hue=gr.themes.utils.colors.indigo,
+            secondary_hue=gr.themes.utils.colors.slate,
+            neutral_hue=gr.themes.utils.colors.gray,
+            radius_size=gr.themes.utils.sizes.radius_md,
+            font=[gr.themes.GoogleFont('Inter'), gr.themes.GoogleFont('Noto Sans SC')],
+        ).set(
+            body_background_fill='#f7f8fa',
+            block_background_fill='#ffffff',
+            block_border_color='#e5e7eb',
+            block_label_text_color='#6b7280',
+            body_text_color='#1a1a2e',
+            body_text_color_subdued='#9ca3af',
+            input_background_fill='#ffffff',
+            input_border_color='#e5e7eb',
+            button_primary_background_fill='#6366f1',
+            button_primary_text_color='#ffffff',
+            button_secondary_background_fill='#ffffff',
+            button_secondary_border_color='#e5e7eb',
         )
+
+        _latex_delimiters = [
+            {'left': '\\(', 'right': '\\)', 'display': True},
+            {'left': '\\begin{equation}', 'right': '\\end{equation}', 'display': True},
+            {'left': '\\begin{align}', 'right': '\\end{align}', 'display': True},
+            {'left': '\\begin{alignat}', 'right': '\\end{alignat}', 'display': True},
+            {'left': '\\begin{gather}', 'right': '\\end{gather}', 'display': True},
+            {'left': '\\begin{CD}', 'right': '\\end{CD}', 'display': True},
+            {'left': '\\[', 'right': '\\]', 'display': True},
+        ]
 
         with gr.Blocks(
                 css=os.path.join(os.path.dirname(__file__), 'assets/appBot.css'),
                 theme=customTheme,
+                title='Qwen-Agent',
         ) as demo:
+            # ── Splash screen + FAB overlay ──────────────────────
+            gr.HTML(value=_build_splash_html())
+            gr.HTML(value=_build_fab_html())
+
             history = gr.State([])
             with ms.Application():
                 with gr.Row(elem_classes='container'):
+                    # ── Left: chat panel ──────────────────────────────────
                     with gr.Column(scale=4):
-                        chatbot = mgr.Chatbot(value=convert_history_to_chatbot(messages=messages),
-                                              avatar_images=[
-                                                  self.user_config,
-                                                  self.agent_config_list,
-                                              ],
-                                              height=850,
-                                              avatar_image_width=80,
-                                              flushing=False,
-                                              show_copy_button=True,
-                                              latex_delimiters=[{
-                                                  'left': '\\(',
-                                                  'right': '\\)',
-                                                  'display': True
-                                              }, {
-                                                  'left': '\\begin{equation}',
-                                                  'right': '\\end{equation}',
-                                                  'display': True
-                                              }, {
-                                                  'left': '\\begin{align}',
-                                                  'right': '\\end{align}',
-                                                  'display': True
-                                              }, {
-                                                  'left': '\\begin{alignat}',
-                                                  'right': '\\end{alignat}',
-                                                  'display': True
-                                              }, {
-                                                  'left': '\\begin{gather}',
-                                                  'right': '\\end{gather}',
-                                                  'display': True
-                                              }, {
-                                                  'left': '\\begin{CD}',
-                                                  'right': '\\end{CD}',
-                                                  'display': True
-                                              }, {
-                                                  'left': '\\[',
-                                                  'right': '\\]',
-                                                  'display': True
-                                              }])
-
-                        input = mgr.MultimodalInput(placeholder=self.input_placeholder,)
-                        audio_input = gr.Audio(
-                            sources=["microphone"],
-                            type="filepath"
+                        chatbot = mgr.Chatbot(
+                            value=convert_history_to_chatbot(messages=messages),
+                            avatar_images=[self.user_config, self.agent_config_list],
+                            height=750,
+                            avatar_image_width=64,
+                            flushing=False,
+                            show_copy_button=True,
+                            latex_delimiters=_latex_delimiters,
                         )
 
-                    with gr.Column(scale=1):
+                        with gr.Row():
+                            input = mgr.MultimodalInput(
+                                placeholder=self.input_placeholder,
+                                scale=9,
+                            )
+                            clear_btn = gr.Button(
+                                '🗑️ 清空',
+                                variant='secondary',
+                                scale=1,
+                                min_width=72,
+                            )
+
+                        audio_input = gr.Audio(
+                            label='🎙️ 语音输入',
+                            sources=['microphone'],
+                            type='filepath',
+                        )
+
+                    # ── Right: sidebar ────────────────────────────────────
+                    with gr.Column(scale=1, elem_classes='qa-sidebar'):
                         if len(self.agent_list) > 1:
                             agent_selector = gr.Dropdown(
                                 [(agent.name, i) for i, agent in enumerate(self.agent_list)],
-                                label='Agents',
-                                info='选择一个Agent',
+                                label='🤖 Agents',
+                                info='选择一个 Agent',
                                 value=0,
                                 interactive=True,
                             )
 
                         agent_info_block = self._create_agent_info_block()
-
                         agent_plugins_block = self._create_agent_plugins_block()
+
+                        hw_info_block = gr.HTML(value=_build_hw_info_html())
+                        gpu_stats_block = gr.HTML(value=_build_gpu_stats_html())
 
                         if self.prompt_suggestions:
                             gr.Examples(
-                                label='推荐对话',
+                                label='💡 推荐对话',
                                 examples=self.prompt_suggestions,
                                 inputs=[input],
                             )
 
+                    # ── Event wiring ──────────────────────────────────────
                     if len(self.agent_list) > 1:
                         agent_selector.change(
                             fn=self.change_agent,
@@ -178,6 +327,13 @@ class WebUI:
                             outputs=[agent_selector, agent_info_block, agent_plugins_block],
                             queue=False,
                         )
+
+                    clear_btn.click(
+                        fn=self.clear_history,
+                        inputs=None,
+                        outputs=[chatbot, history],
+                        queue=False,
+                    )
 
                     input_promise = input.submit(
                         fn=self.add_text,
@@ -205,11 +361,20 @@ class WebUI:
 
                     input_promise.then(self.flushed, None, [input])
 
+                    # Live GPU stats refresh every 3 seconds
+                    try:
+                        gpu_timer = gr.Timer(value=3)
+                        gpu_timer.tick(fn=_build_gpu_stats_html, outputs=[gpu_stats_block])
+                    except Exception:
+                        pass
+
             demo.load(None)
 
-        demo.queue(default_concurrency_limit=concurrency_limit).launch(share=share,
-                                                                       server_name=server_name,
-                                                                       server_port=server_port)
+        demo.queue(default_concurrency_limit=concurrency_limit).launch(
+            share=share,
+            server_name=server_name,
+            server_port=server_port,
+        )
 
     def change_agent(self, agent_selector):
         yield agent_selector, self._create_agent_info_block(agent_selector), self._create_agent_plugins_block(
@@ -326,6 +491,9 @@ class WebUI:
         from qwen_agent.gui.gradio_dep import gr
 
         return gr.update(interactive=True)
+
+    def clear_history(self):
+        return [], []
 
     def _get_agent_index_by_name(self, agent_name):
         if agent_name is None:

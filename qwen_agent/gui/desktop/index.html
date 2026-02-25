@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Qwen-Agent</title>
+  <link rel="icon" type="image/png" href="Qwen3.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ═══ SPLASH ═══ -->
+<div id="splash">
+  <div class="splash-logo"><img src="Qwen3.png" alt="Qwen3"></div>
+  <div class="splash-title">Qwen-Agent</div>
+  <div class="splash-sub">Powered by Qwen3</div>
+  <div class="splash-loader"><div class="splash-loader-bar"></div></div>
+</div>
+
+<!-- ═══ APP ═══ -->
+<div id="app">
+  <!-- SIDEBAR -->
+  <aside id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <img src="Qwen3.png" alt="Q">
+        <span>Qwen-Agent</span>
+      </div>
+      <button class="btn-new-chat" id="btn-new-chat"><span>✚</span> <span data-i18n="newChat">新对话</span></button>
+    </div>
+    <div class="sidebar-nav">
+      <button class="active" data-page="chat" data-i18n="chat">对话</button>
+      <button data-page="discover" data-i18n="discover">发现</button>
+    </div>
+    <div class="sidebar-search">
+      <input type="text" id="conv-search" data-i18n-placeholder="searchConv" placeholder="搜索对话…">
+    </div>
+    <div class="conv-list" id="conv-list"></div>
+    <div class="sidebar-footer">
+      <div class="user-avatar">U</div>
+      <span class="user-name" data-i18n="mySpace">我的空间</span>
+      <button id="btn-open-settings" title="Settings">⚙</button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main id="main">
+    <!-- Topbar -->
+    <header class="topbar">
+      <button class="btn-icon" id="btn-sidebar" title="Sidebar">☰</button>
+      <div class="topbar-logo"><img src="Qwen3.png" alt="Q"></div>
+      <div class="model-select-wrap" id="model-select">
+        <span class="model-dot"></span>
+        <span id="model-name">Claude Sonnet 4.5</span>
+        <span class="arrow">▾</span>
+        <div class="model-dropdown" id="model-dropdown"></div>
+      </div>
+      <div class="topbar-spacer"></div>
+      <div class="lang-select" id="lang-select">
+        <button class="active" data-lang="zh">中</button>
+        <button data-lang="en">EN</button>
+      </div>
+      <div class="topbar-actions">
+        <button id="btn-theme" title="Theme">🌓</button>
+        <button id="btn-settings-top" title="Settings">⚙</button>
+      </div>
+    </header>
+
+    <!-- Toast notification -->
+    <div id="toast" class="toast"></div>
+
+    <!-- ═══ PAGE: CHAT ═══ -->
+    <div class="page active" id="page-chat">
+      <div id="chat-area">
+        <div id="welcome" class="welcome-section">
+          <div class="welcome-logo"><img src="Qwen3.png" alt="Qwen3"></div>
+          <h1 data-i18n="welcomeTitle">你好，我是 Qwen-Agent</h1>
+          <p data-i18n="welcomeSub">有什么可以帮你的？</p>
+        </div>
+        <div id="messages" class="hidden"></div>
+      </div>
+      <div id="input-area">
+        <div class="input-inner">
+          <div class="input-box">
+            <!-- Attached files area (inside input box, like Qwen) -->
+            <div id="attach-list" class="attach-list"></div>
+            <textarea id="input" rows="1" data-i18n-placeholder="inputPlaceholder" placeholder="向 Qwen-Agent 提问…"></textarea>
+            <div class="input-bottom-row">
+              <div class="mode-chips">
+                <button class="chip active" data-mode="chat">✦ <span data-i18n="modeTask">任务助理</span></button>
+                <button class="chip" data-mode="think">🧠 <span data-i18n="modeThink">深度思考</span></button>
+                <button class="chip" data-mode="research">⚡ <span data-i18n="modeResearch">深度研究</span></button>
+                <button class="chip" data-mode="code">💻 <span data-i18n="modeCode">代码</span></button>
+                <button class="chip" data-mode="image">🖼 <span data-i18n="modeImage">图像</span></button>
+                <button class="chip chip-more" id="btn-more-chips">☰ <span data-i18n="modeMore">更多</span></button>
+              </div>
+              <div class="input-actions">
+                <button id="btn-fullscreen" class="act-btn" title="Fullscreen">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                </button>
+                <div class="web-search-wrap">
+                  <button class="act-btn" id="btn-web-search" title="Web Search">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                  </button>
+                  <div class="web-search-dropdown" id="web-search-dropdown">
+                    <div class="ws-option active" data-ws="auto"><span class="ws-check">✓</span><span data-i18n="wsAuto">自动联网搜索</span></div>
+                    <div class="ws-option" data-ws="on"><span class="ws-check"></span><span data-i18n="wsOn">开启联网搜索</span></div>
+                    <div class="ws-option" data-ws="off"><span class="ws-check"></span><span data-i18n="wsOff">关闭联网搜索</span></div>
+                  </div>
+                </div>
+                <button id="btn-attach" class="act-btn" title="Upload">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                </button>
+                <button id="btn-img-upload" class="act-btn" title="Image">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                </button>
+                <button id="btn-mic" class="act-btn" title="Voice">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+                </button>
+                <button id="btn-send" class="btn-send" title="Send">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94l18.04-8.01a.75.75 0 000-1.36L3.478 2.405z"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+          <!-- More chips dropdown -->
+          <div class="more-chips-dropdown" id="more-chips-dropdown">
+            <button class="chip" data-mode="analyze">📊 <span data-i18n="modeAnalyze">文本分析</span></button>
+            <button class="chip" data-mode="translate">🌐 <span data-i18n="modeTranslate">翻译</span></button>
+            <button class="chip" data-mode="write">✍️ <span data-i18n="modeWrite">写作</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ PAGE: DISCOVER ═══ -->
+    <div class="page" id="page-discover">
+      <div class="page-discover">
+        <div class="discover-header">
+          <div class="hot-tag">🔥 <span data-i18n="hotNew">热门上新</span></div>
+          <h2 data-i18n="discoverTitle">智能代码，轻松编程一键读写</h2>
+          <p data-i18n="discoverSub">探索 Qwen-Agent 的强大工具和智能体</p>
+        </div>
+        <div class="feature-row">
+          <div class="feature-cards">
+            <div class="feature-card" onclick="navigateTo('ppt')">
+              <div class="fc-badge">✦ 海量模版</div>
+              <div class="fc-icon">📝</div>
+              <div class="fc-title" data-i18n="fcPpt">PPT创作</div>
+              <div class="fc-desc" data-i18n="fcPptDesc">一句话生成精美PPT演示文稿</div>
+              <button class="fc-btn">📑 <span data-i18n="fcStart">开始创作</span></button>
+            </div>
+            <div class="feature-card" onclick="navigateTo('record')">
+              <div class="fc-icon">🎙</div>
+              <div class="fc-title" data-i18n="fcRecord">实时记录</div>
+              <div class="fc-desc" data-i18n="fcRecordDesc">语音转文字，智能分析对话内容</div>
+              <button class="fc-btn">🎙 <span data-i18n="fcStartRecord">开始录音</span></button>
+            </div>
+            <div class="feature-card" onclick="navigateTo('av')">
+              <div class="fc-icon">🎬</div>
+              <div class="fc-title" data-i18n="fcVideo">音视频速读</div>
+              <div class="fc-desc" data-i18n="fcVideoDesc">音视频内容快速提取和总结</div>
+              <button class="fc-btn">📤 <span data-i18n="fcUpload">开始上传</span></button>
+            </div>
+          </div>
+          <div class="discover-aside">
+            <div class="aside-tool" onclick="navigateTo('doc')"><div class="at-icon">📖</div><div><div class="at-name" data-i18n="toolRead">阅读助手</div><div class="at-desc" data-i18n="toolReadDesc">文档问答、总结翻译</div></div></div>
+            <div class="aside-tool" onclick="useToolPrompt('请帮我解析以下网页链接的内容并生成摘要：\\n\\n链接地址：')"><div class="at-icon">🔗</div><div><div class="at-name" data-i18n="toolLink">链接速读</div><div class="at-desc" data-i18n="toolLinkDesc">解析网页和图客链接</div></div></div>
+            <div class="aside-tool" onclick="useToolPrompt('请帮我整理以下内容为结构化笔记（包含要点、关键词、总结）：\\n\\n')"><div class="at-icon">📝</div><div><div class="at-name" data-i18n="toolNote">AI笔记</div><div class="at-desc" data-i18n="toolNoteDesc">个人知识管理和笔记</div></div></div>
+          </div>
+        </div>
+        <div class="cat-filter-row">
+          <div class="cat-tabs">
+            <button class="cat-tab active" data-cat="all" data-i18n="catAll" onclick="filterToolCat(this,'all')">全部分类</button>
+            <button class="cat-tab" data-cat="draw" data-i18n="catDraw" onclick="filterToolCat(this,'draw')">绘图</button>
+            <button class="cat-tab" data-cat="util" data-i18n="catUtil" onclick="filterToolCat(this,'util')">实用</button>
+            <button class="cat-tab" data-cat="fun" data-i18n="catFun" onclick="filterToolCat(this,'fun')">娱乐</button>
+            <button class="cat-tab" data-cat="learn" data-i18n="catLearn" onclick="filterToolCat(this,'learn')">学习</button>
+            <button class="cat-tab" data-cat="work" data-i18n="catWork" onclick="filterToolCat(this,'work')">职场</button>
+          </div>
+          <div class="discover-search">
+            🔍 <input type="text" data-i18n-placeholder="searchTools" placeholder="搜索智能体">
+          </div>
+        </div>
+        <div class="tool-grid" id="tool-grid"></div>
+      </div>
+    </div>
+
+    <!-- ═══ PAGE: RECORDING ═══ -->
+    <div class="page" id="page-record">
+      <div class="subpage">
+        <div class="subpage-header">
+          <button class="btn-back" title="Back" onclick="navigateTo(state.previousPage||'discover')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <h2 data-i18n="recording">录音</h2>
+          <div class="subpage-spacer"></div>
+          <div class="subpage-model-select" data-model-select>
+            <span class="model-dot"></span>
+            <span class="smodel-name">Model</span>
+            <span class="arrow">▾</span>
+            <div class="smodel-dropdown"></div>
+          </div>
+        </div>
+        <div class="subpage-body">
+          <div class="record-hero">
+            <div class="record-visual" id="record-visual">
+              <div class="record-ring"></div>
+              <div class="record-ring r2"></div>
+              <div class="record-ring r3"></div>
+              <div class="record-icon-center">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+              </div>
+            </div>
+            <div class="record-timer" id="record-timer">00:00</div>
+            <div class="record-status" id="record-status" data-i18n="recReady">准备录音</div>
+          </div>
+          <div class="record-controls">
+            <button class="rec-btn secondary" id="rec-cancel" disabled data-i18n="recCancel">取消</button>
+            <button class="rec-btn primary" id="rec-toggle" data-i18n="recStart">开始录音</button>
+            <button class="rec-btn secondary" id="rec-done" disabled data-i18n="recDone">完成</button>
+          </div>
+          <div class="record-result hidden" id="record-result">
+            <h3 data-i18n="recTranscript">转写结果</h3>
+            <div class="record-transcript" id="record-transcript"></div>
+            <div class="record-actions">
+              <button class="rec-action-btn" id="rec-copy" data-i18n="recCopy">📋 复制文本</button>
+              <button class="rec-action-btn primary" id="rec-analyze" data-i18n="recAnalyze">🤖 AI 分析</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ PAGE: PPT ═══ -->
+    <div class="page" id="page-ppt">
+      <div class="subpage">
+        <div class="subpage-header">
+          <button class="btn-back" title="Back" onclick="navigateTo(state.previousPage||'discover')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <h2 data-i18n="ppt">PPT</h2>
+          <div class="subpage-spacer"></div>
+          <div class="subpage-model-select" data-model-select>
+            <span class="model-dot"></span>
+            <span class="smodel-name">Model</span>
+            <span class="arrow">▾</span>
+            <div class="smodel-dropdown"></div>
+          </div>
+        </div>
+        <div class="subpage-body">
+          <div class="ppt-section">
+            <h3 data-i18n="pptTopic">主题描述</h3>
+            <textarea id="ppt-topic" rows="3" data-i18n-placeholder="pptTopicPh" placeholder="描述你想要的PPT主题，例如：AI在教育领域的应用趋势分析"></textarea>
+          </div>
+          <div class="ppt-section">
+            <h3 data-i18n="pptStyle">风格选择</h3>
+            <div class="ppt-templates" id="ppt-templates">
+              <div class="ppt-tpl active" data-tpl="business"><div class="tpl-preview biz"></div><span data-i18n="tplBiz">商务</span></div>
+              <div class="ppt-tpl" data-tpl="tech"><div class="tpl-preview tech"></div><span data-i18n="tplTech">科技</span></div>
+              <div class="ppt-tpl" data-tpl="education"><div class="tpl-preview edu"></div><span data-i18n="tplEdu">教育</span></div>
+              <div class="ppt-tpl" data-tpl="creative"><div class="tpl-preview cre"></div><span data-i18n="tplCre">创意</span></div>
+              <div class="ppt-tpl" data-tpl="minimal"><div class="tpl-preview min"></div><span data-i18n="tplMin">极简</span></div>
+            </div>
+          </div>
+          <div class="ppt-section">
+            <h3 data-i18n="pptPages">页数设置</h3>
+            <div class="ppt-pages-ctrl">
+              <button class="ppt-page-btn" id="ppt-minus">−</button>
+              <span id="ppt-page-count">10</span>
+              <button class="ppt-page-btn" id="ppt-plus">+</button>
+              <span class="ppt-page-label" data-i18n="pptPageUnit">页</span>
+            </div>
+          </div>
+          <button class="ppt-generate-btn" id="ppt-generate">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <span data-i18n="pptGenerate">生成 PPT</span>
+          </button>
+          <div class="ppt-progress hidden" id="ppt-progress">
+            <div class="ppt-progress-bar"><div class="ppt-progress-fill" id="ppt-progress-fill"></div></div>
+            <div class="ppt-progress-text" id="ppt-progress-text" data-i18n="pptGenerating">正在生成大纲…</div>
+          </div>
+          <div class="ppt-preview hidden" id="ppt-preview">
+            <h3 data-i18n="pptResult">生成结果</h3>
+            <div class="ppt-outline" id="ppt-outline"></div>
+            <div class="ppt-preview-actions">
+              <button class="rec-action-btn" id="ppt-copy-outline" data-i18n="pptCopyOutline">📋 复制大纲</button>
+              <button class="rec-action-btn primary" id="ppt-refine" data-i18n="pptRefine">✨ 优化细化</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ PAGE: AUDIO/VIDEO ═══ -->
+    <div class="page" id="page-av">
+      <div class="subpage">
+        <div class="subpage-header">
+          <button class="btn-back" title="Back" onclick="navigateTo(state.previousPage||'discover')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <h2 data-i18n="avMedia">音视频</h2>
+          <div class="subpage-spacer"></div>
+          <div class="subpage-model-select" data-model-select>
+            <span class="model-dot"></span>
+            <span class="smodel-name">Model</span>
+            <span class="arrow">▾</span>
+            <div class="smodel-dropdown"></div>
+          </div>
+        </div>
+        <div class="subpage-body">
+          <div class="av-upload-zone" id="av-upload-zone">
+            <div class="av-upload-icon">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            </div>
+            <h3 data-i18n="avUploadTitle">上传音视频文件</h3>
+            <p data-i18n="avUploadSub">支持 MP3, MP4, WAV, M4A, WebM 等格式</p>
+            <button class="av-upload-btn" id="av-upload-btn" data-i18n="avSelectFile">选择文件</button>
+          </div>
+          <div class="av-processing hidden" id="av-processing">
+            <div class="av-file-info" id="av-file-info"></div>
+            <div class="av-progress-wrap">
+              <div class="av-progress-bar"><div class="av-progress-fill" id="av-progress-fill"></div></div>
+              <span class="av-progress-text" id="av-progress-text">0%</span>
+            </div>
+            <div class="av-steps">
+              <div class="av-step active" id="av-step-1"><span class="av-step-dot"></span><span data-i18n="avStep1">上传文件</span></div>
+              <div class="av-step" id="av-step-2"><span class="av-step-dot"></span><span data-i18n="avStep2">音频提取</span></div>
+              <div class="av-step" id="av-step-3"><span class="av-step-dot"></span><span data-i18n="avStep3">语音识别</span></div>
+              <div class="av-step" id="av-step-4"><span class="av-step-dot"></span><span data-i18n="avStep4">内容分析</span></div>
+            </div>
+          </div>
+          <div class="av-result hidden" id="av-result">
+            <div class="av-tabs">
+              <button class="av-tab active" data-avt="summary" data-i18n="avSummary">内容摘要</button>
+              <button class="av-tab" data-avt="transcript" data-i18n="avTranscript">完整文稿</button>
+              <button class="av-tab" data-avt="timeline" data-i18n="avTimeline">时间线</button>
+            </div>
+            <div class="av-tab-content" id="av-tab-content"></div>
+            <div class="av-result-actions">
+              <button class="rec-action-btn" id="av-reupload">🔄 重新上传</button>
+              <button class="rec-action-btn" id="av-copy" data-i18n="avCopy">📋 复制</button>
+              <button class="rec-action-btn primary" id="av-ask" data-i18n="avAsk">💬 向AI提问</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ PAGE: DOCUMENT ═══ -->
+    <div class="page" id="page-doc">
+      <div class="subpage">
+        <div class="subpage-header">
+          <button class="btn-back" title="Back" onclick="navigateTo(state.previousPage||'discover')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <h2 data-i18n="documents">文档</h2>
+          <div class="subpage-spacer"></div>
+          <div class="subpage-model-select" data-model-select>
+            <span class="model-dot"></span>
+            <span class="smodel-name">Model</span>
+            <span class="arrow">▾</span>
+            <div class="smodel-dropdown"></div>
+          </div>
+        </div>
+        <div class="subpage-body">
+          <div class="doc-upload-zone" id="doc-upload-zone">
+            <div class="doc-upload-icon">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            </div>
+            <h3 data-i18n="docUploadTitle">上传文档</h3>
+            <p data-i18n="docUploadSub">支持 PDF, DOCX, TXT, Markdown 等格式</p>
+            <button class="doc-upload-btn" id="doc-upload-btn" data-i18n="docSelectFile">选择文件</button>
+          </div>
+          <div class="doc-processing hidden" id="doc-processing">
+            <div class="doc-file-card" id="doc-file-card"></div>
+            <div class="av-progress-wrap">
+              <div class="av-progress-bar"><div class="av-progress-fill" id="doc-progress-fill"></div></div>
+              <span class="av-progress-text" id="doc-progress-text">解析中…</span>
+            </div>
+          </div>
+          <div class="doc-result hidden" id="doc-result">
+            <div class="doc-meta" id="doc-meta"></div>
+            <div class="doc-content-preview" id="doc-content-preview"></div>
+            <div class="doc-reupload-wrap"><button class="rec-action-btn" id="doc-reupload">🔄 重新上传文档</button></div>
+            <div class="doc-qa-section">
+              <h3 data-i18n="docQaTitle">文档问答</h3>
+              <div class="doc-qa-msgs" id="doc-qa-msgs"></div>
+              <div class="doc-qa-input">
+                <input type="text" id="doc-qa-input" data-i18n-placeholder="docQaPh" placeholder="对文档内容提问…">
+                <button class="btn-send" id="doc-qa-send" title="Send">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94l18.04-8.01a.75.75 0 000-1.36L3.478 2.405z"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ PAGE: TOOL (chat-style sub-page) ═══ -->
+    <div class="page" id="page-tool">
+      <div class="tool-chat">
+        <div class="tool-chat-header">
+          <button class="btn-back" title="返回" onclick="navigateTo('discover')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <span class="tool-chat-title" id="tool-page-title">工具名称</span>
+          <span class="tool-chat-badge" id="tool-page-desc">工具描述</span>
+          <div class="subpage-spacer"></div>
+        </div>
+        <div class="tool-chat-messages" id="tool-chat-messages"></div>
+        <div class="tool-chat-inputbar">
+          <input class="tool-chat-input" id="tool-page-input" type="text" placeholder="在这里和我对话">
+          <button class="tool-chat-send" id="tool-page-send" title="发送">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94l18.04-8.01a.75.75 0 000-1.36L3.478 2.405z"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ PAGE: SETTINGS ═══ -->
+    <div class="page" id="page-settings">
+      <div class="page-settings">
+        <h2 data-i18n="settingsTitle">⚙ 设置</h2>
+        <div class="setting-group">
+          <div class="setting-group-title" data-i18n="sgAppearance">外观</div>
+          <div class="setting-row">
+            <div><div class="setting-label" data-i18n="darkMode">深色模式</div><div class="setting-desc" data-i18n="darkModeDesc">切换界面主题</div></div>
+            <div class="toggle" id="toggle-dark"></div>
+          </div>
+          <div class="setting-row">
+            <div><div class="setting-label" data-i18n="language">语言</div><div class="setting-desc" data-i18n="languageDesc">界面显示语言</div></div>
+            <div class="lang-select">
+              <button class="active" data-lang="zh">中文</button>
+              <button data-lang="en">English</button>
+            </div>
+          </div>
+        </div>
+        <div class="setting-group">
+          <div class="setting-group-title" data-i18n="sgSystem">系统</div>
+          <div class="setting-row">
+            <div><div class="setting-label" data-i18n="sysInfo">系统信息</div><div class="setting-desc" id="sys-info">…</div></div>
+          </div>
+          <div class="setting-row">
+            <div><div class="setting-label" data-i18n="convCount">对话数量</div><div class="setting-desc" id="conv-count">0</div></div>
+          </div>
+        </div>
+        <div class="setting-group">
+          <div class="setting-group-title" data-i18n="sgData">数据</div>
+          <div class="setting-row">
+            <div><div class="setting-label" data-i18n="clearAll">清除所有对话</div><div class="setting-desc" data-i18n="clearAllDesc">此操作不可撤销</div></div>
+            <button class="btn-danger" id="btn-clear-all" data-i18n="clearBtn">清除</button>
+          </div>
+        </div>
+        <div class="setting-group">
+          <div class="setting-row">
+            <div><div class="setting-label" data-i18n="version">版本</div><div class="setting-desc">Qwen-Agent Desktop v2.0.0</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ GLOBAL BOTTOM NAV BAR ═══ -->
+    <nav id="global-nav" class="global-nav">
+      <button class="gnav-item active" data-nav="chat">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span data-i18n="chat">对话</span>
+      </button>
+      <button class="gnav-item" data-nav="record">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+        <span data-i18n="recording">录音</span>
+      </button>
+      <button class="gnav-item" data-nav="ppt">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        <span>PPT</span>
+      </button>
+      <button class="gnav-item" data-nav="av">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        <span data-i18n="avMedia">音视频</span>
+      </button>
+      <button class="gnav-item" data-nav="doc">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <span data-i18n="documents">文档</span>
+      </button>
+      <button class="gnav-item" data-nav="discover">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        <span data-i18n="discover">发现</span>
+      </button>
+    </nav>
+
+  </main>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

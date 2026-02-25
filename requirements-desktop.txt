@@ -1,0 +1,15 @@
+# Qwen-Agent Desktop — minimal dependencies
+aiohttp>=3.9
+openai>=1.0
+
+# Optional: file parsing
+PyMuPDF>=1.23        # PDF parsing (fitz)
+python-docx>=1.0     # DOCX parsing
+python-pptx>=0.6     # PPTX parsing
+Pillow>=10.0         # Image processing
+
+# Optional: system info
+psutil>=5.9
+
+# Build
+pyinstaller>=6.0
